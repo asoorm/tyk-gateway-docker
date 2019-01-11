@@ -1,0 +1,13 @@
+FROM tykio/tyk-gateway:latest as build
+
+FROM debian:9-slim
+ENV TYK_GW_PIDFILELOCATION /tmp/tyk-gateway.pid
+ENV TYK_GW_COPROCESSOPTIONS_ENABLECOPROCESS false
+WORKDIR /opt/tyk-gateway
+COPY --from=build /opt/tyk-gateway/tyk /opt/tyk-gateway/tyk
+COPY --from=build /opt/tyk-gateway/templates /opt/tyk-gateway/templates
+COPY --from=build /opt/tyk-gateway/policies /opt/tyk-gateway/policies
+
+EXPOSE 8080
+
+CMD ["./tyk"]

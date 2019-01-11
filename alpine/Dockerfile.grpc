@@ -1,0 +1,32 @@
+FROM golang:1.10.0-alpine as build
+
+ARG tykversion
+ARG tykcoprocess
+
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache bash git openssh && \
+    go get -u github.com/TykTechnologies/tyk
+
+RUN cd /go/src/github.com/TykTechnologies/tyk && git checkout --force $tykversion && \
+    go install -a -installsuffix cgo -ldflags="-s -w" -tags "coprocess $tykcoprocess" .
+
+FROM alpine:3.8
+ENV TYK_GW_PIDFILELOCATION /tmp/tyk-gateway.pid
+ENV TYK_GW_COPROCESSOPTIONS_ENABLECOPROCESS false
+RUN apk --no-cache add ca-certificates && \
+    adduser -D -g tyk tyk
+USER tyk
+WORKDIR /opt/tyk-gateway
+COPY --from=build /go/bin/tyk /opt/tyk-gateway/tyk
+COPY --from=build /go/src/github.com/TykTechnologies/tyk/templates /opt/tyk-gateway/templates
+COPY --from=build /go/src/github.com/TykTechnologies/tyk/policies /opt/tyk-gateway/policies
+COPY tyk.standalone.conf /opt/tyk-gateway/tyk.conf
+USER tyk
+
+EXPOSE 8080
+
+CMD ["./tyk"]
